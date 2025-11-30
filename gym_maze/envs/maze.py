@@ -10,6 +10,8 @@ class MazeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
     def __init__(self, render_mode=None, height_range=[5, 10], width_range=[5, 10], manual_mode=False):
+        self.height_max = height_range[1]
+        self.width_max = width_range[1]
         self.height_range = height_range
         self.width_range = width_range
         self.window_size = 720          # Pygame window size
@@ -25,7 +27,7 @@ class MazeEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0, 
             high=1, 
-            shape=(self.height_range[1], self.width_range[1], 4 + 2),
+            shape=(self.height_max, self.width_max, 4 + 2),
             dtype=np.float32
         )
         # self.observation_space = spaces.MultiBinary(
@@ -78,7 +80,7 @@ class MazeEnv(gym.Env):
 
 
     def _get_obs(self):
-        locs = np.zeros((self.height_range[1], self.width_range[1], 2), dtype=np.float32)
+        locs = np.zeros((self.height_max, self.width_max, 2), dtype=np.float32)
         locs[self._agent_location[0], self._agent_location[1], 0] = 1.
         locs[self._target_location[0], self._target_location[1], 1] = 1.
         return np.concatenate([self.maze_fullsize, locs], axis=-1).astype(np.float32)
@@ -89,17 +91,37 @@ class MazeEnv(gym.Env):
         #    "target": self._target_location
         #}
 
+
     def _get_info(self):
         return {
             "move_count": self.move_count, 
             "agent_location": self._agent_location,
             "target_location": self._target_location,
+            "maze_h": self.maze_height,
+            "maze_w": self.maze_width,
         }  #, "distance_map": self.distance_map, "manhattan_map": self.manhattan_map}
+
+
+    def set_generation_size(self, h_range, w_range):
+        # value check
+        if h_range[0] <= 1:
+            raise ValueError(f"Invalid minimum height: {h_range[0]}. The minimum height must be greater than 1.")
+        if h_range[1] > self.height_max:
+            raise ValueError(f"Invalid maximum height: {h_range[1]}. The maximum height must be <= {self.height_max}.")
+        if w_range[0] <= 1:
+            raise ValueError(f"Invalid minimum width: {w_range[0]}. The minimum weight must be greater than 1.")
+        if w_range[1] > self.width_max:
+            raise ValueError(f"Invalid minimum width: {w_range[1]}. The maximum weight must be <= {self.width_max}.")
+        
+        self.height_range = h_range
+        self.width_range = w_range
+
 
     def set_manual(self, value):
         if not isinstance(value, bool):
             raise ValueError("Input must be a boolean value")
         self.manual_mode = value
+
 
     def reset(self, seed=None, nr_ratio=0.75, options=None):
         super().reset(seed=seed)
@@ -111,7 +133,7 @@ class MazeEnv(gym.Env):
         # make maze
         self.maze = self.generate_maze(self.maze_height, self.maze_width, nr_ratio=nr_ratio)
         # self.maze_fullsize: observation_space["maze"]의 형태에 맞춘 maze array
-        maze_ones = np.ones((self.height_range[1], self.width_range[1], 4))
+        maze_ones = np.ones((self.height_max, self.width_max, 4))
         maze_ones[:self.maze_height, :self.maze_width] = self.maze
         self.maze_fullsize = maze_ones
 
@@ -182,7 +204,8 @@ class MazeEnv(gym.Env):
         cell_stack = []
 
         # [step 1] Select initial cell and stack.
-        cell_current = self.np_random.integers([self.maze_height, self.maze_width], size=2, dtype=int) # modified: np.random.randint -> np_random.integers
+        #cell_current = self.np_random.integers([self.maze_height, self.maze_width], size=2, dtype=int) # modified: np.random.randint -> np_random.integers
+        cell_current = self.np_random.integers([height, width], size=2, dtype=int) # modified: np.random.randint -> np_random.integers
         cell_stack.append(cell_current)
         cell_visited[cell_current[0], cell_current[1]] = True
         
@@ -296,7 +319,7 @@ class MazeEnv(gym.Env):
         # Generate a canvas
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill((255, 255, 255))
-        pix_square_size = (self.window_size / max(self.height_range[1], self.width_range[1], 22))
+        pix_square_size = (self.window_size / max(self.height_max, self.width_max, 22))
 
         startx = (self.window_size - self.maze_width * pix_square_size)/2
         starty = (self.window_size - self.maze_height * pix_square_size)/2
@@ -364,7 +387,7 @@ class MazeEnv(gym.Env):
             )
     
     def get_draw_infos(self):
-        pix_square_size = (self.window_size / max(self.height_range[1], self.width_range[1], 22))
+        pix_square_size = (self.window_size / max(self.height_max, self.width_max, 22))
         return {
             'pix_square_size': pix_square_size,
             'startx': float(self.window_size - self.maze_width * pix_square_size)/2,

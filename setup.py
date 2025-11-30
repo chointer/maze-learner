@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="gym-maze",
-    version="0.1.0",
+    version="0.1.1",
     author="chointer",
     author_email="chointer04@gmail.com",
     description="A gymnaisum maze environment",
